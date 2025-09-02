@@ -16,13 +16,13 @@ const llm = new ChatGoogleGenerativeAI({
 //arithmetic tools
 const multiply = tool(
   async ({ a, b }) => {
-    return a * b;
+    return `${a * b}`;
   },
   {
-    name: "multiply",
-    description: "Multiplies two numbers",
-    schema: z.object({
-      a: z.number().describe("The first number"),
+    name: "multiply",// The tool's name (how the LLM knows what to call)
+    description: "Multiplies two numbers", // Natural language description, helps LLM decide when to use this tool
+    schema: z.object({   // Input validation & structure using Zod
+      a: z.number().describe("The first number"),// Required number input, with a description
       b: z.number().describe("The second number"),
     }),
   }
@@ -30,7 +30,7 @@ const multiply = tool(
 
 const add = tool(
   async ({ a, b }) => {
-    return a + b;
+    return `${a + b}`;
   },
   {
     name: "add",
@@ -47,7 +47,7 @@ const divide = tool(
     if (b === 0) {
       return "Error: Division by zero is not allowed.";
     }
-    return a / b;
+    return `${a / b}`;
   },
   {
     name: "divide",
@@ -59,25 +59,33 @@ const divide = tool(
   }
 );
 
-const tools = [multiply, add, divide];
+const tools = [multiply, add, divide];//LangChain provides a helper called tool() (or sometimes StructuredTool) that takes:
+// A function (what the tool should do).
+
+// Some metadata (name, description, schema).
 //let's map the tools to their names
 const toolsByName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
-const llmWithTools = llm.bindTools(tools);
+const llmWithTools = llm.bindTools(tools);//! now llm knows about the tools we gave a context about the tools
 
-//llm call functions
+
+
+
+
+
+//!llm call functions
 //node 1
-async function llmCall(state) {
+async function llmCall(state) {//takes state which is given by the user
   //LLM decides whether to call a tool or not
   const result = await llmWithTools.invoke([
     {
-      role: "system",
+      role: "system",//Think of it like the "master prompt".the context setter / brainwash instruction
       content:
-        "you are a helpful assistant tasked woth performing arithmetic on set of inputs",
+        "you are a helpful assistant tasked woth performing arithmetic on set of inputs",//context
     },
-    ...state.messages,
+    ...state.messages, //user messages
   ]);
   return {
-    messages: [result],
+    messages: [result], //returns the result as an array of messages
   };
 }
 //? node2:
@@ -93,11 +101,11 @@ async function toolName(state) {
       const tool = toolsByName[toolCall.name];
       if (!tool) throw new Error(`Tool ${toolCall.name} not found`);
 
-      const observation = await tool.invoke(toolCall.args);
+      const observation = await tool.invoke(toolCall.args);// e.g. 10 / 2 = 5
       result.push(
         new ToolMessage({
-          content: observation,
-          tool_call_id: toolCall.id,
+          content: observation,// "5"
+          tool_call_id: toolCall.id,// link back to the request ,tool_call_id: toolCall.id → a pointer back to which tool request this answer belongs to.
         })
       );
     }
